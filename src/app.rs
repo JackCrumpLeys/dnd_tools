@@ -1,16 +1,36 @@
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
-pub struct TemplateApp {
-    // Example stuff:
-    label: String,
-
-    // this how you opt-out of serialization of a member
-    #[serde(skip)]
-    value: f32,
+pub struct DndTool {
+    places: Vec<Place>
 }
 
-impl Default for TemplateApp {
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Place {
+    name: String,
+    creatures: Vec<Creature>
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub struct Creature {
+    size: Size,
+    _type: String,
+    hp: i32,
+    name: String
+
+}
+
+#[derive(serde::Deserialize, serde::Serialize)]
+pub enum Size {
+    Tiny,
+    Small,
+    Medium,
+    Large,
+    Huge,
+    Gargantuan
+}
+
+impl Default for DndTool {
     fn default() -> Self {
         Self {
             // Example stuff:
@@ -20,7 +40,7 @@ impl Default for TemplateApp {
     }
 }
 
-impl TemplateApp {
+impl DndTool {
     /// Called once before the first frame.
     pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         // This is also where you can customized the look at feel of egui using
@@ -28,6 +48,7 @@ impl TemplateApp {
 
         // Load previous app state (if any).
         // Note that you must enable the `persistence` feature for this to work.
+        cc.egui_ctx.set_visuals(egui::Visuals::dark());
         if let Some(storage) = cc.storage {
             return eframe::get_value(storage, eframe::APP_KEY).unwrap_or_default();
         }
@@ -36,7 +57,7 @@ impl TemplateApp {
     }
 }
 
-impl eframe::App for TemplateApp {
+impl eframe::App for DndTool {
     /// Called by the frame work to save state before shutdown.
     fn save(&mut self, storage: &mut dyn eframe::Storage) {
         eframe::set_value(storage, eframe::APP_KEY, self);
@@ -64,17 +85,17 @@ impl eframe::App for TemplateApp {
         });
 
         egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Side Panel");
-
-            ui.horizontal(|ui| {
-                ui.label("Write something: ");
-                ui.text_edit_singleline(label);
-            });
-
-            ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
-            if ui.button("Increment").clicked() {
-                *value += 1.0;
-            }
+            // ui.heading("Side Panel");
+            //
+            // ui.horizontal(|ui| {
+            //     ui.label("Write something: ");
+            //     ui.text_edit_singleline(label);
+            // });
+            //
+            // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
+            // if ui.button("Increment").clicked() {
+            //     *value += 1.0;
+            // }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
@@ -90,12 +111,7 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             // The central panel the region left after adding TopPanel's and SidePanel's
 
-            ui.heading("eframe template");
-            ui.hyperlink("https://github.com/emilk/eframe_template");
-            ui.add(egui::github_link_file!(
-                "https://github.com/emilk/eframe_template/blob/master/",
-                "Source code."
-            ));
+            ui.heading("DnD tools");
             egui::warn_if_debug_build(ui);
         });
 
