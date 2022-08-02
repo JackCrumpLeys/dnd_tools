@@ -1,41 +1,77 @@
+use std::collections::HashSet;
+use std::ops::Deref;
+use egui_inspect::derive::Inspect;
+use eframe::{egui};
+use eframe::egui::Id;
+use egui_inspect::inspect;
+// use ::egui::*;
+
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(default)] // if we add new fields, give them default values when deserializing old state
 pub struct DndTool {
-    places: Vec<Place>
+    places: Vec<Place>,
+    selected_place_index: usize,
+    open_place_windows_indexes: Vec<usize>
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub struct Place {
     name: String,
-    creatures: Vec<Creature>
+    creatures: Vec<Creature>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub struct Creature {
     size: Size,
     _type: String,
+    lv:i32,
     hp: i32,
-    name: String
-
+    strength: i32,
+    speed: i32,
+    int: i32,
+    mana: i32,
+    vit:i32,
+    name: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Ord, PartialEq, PartialOrd, Eq, Clone)]
 pub enum Size {
     Tiny,
     Small,
     Medium,
     Large,
     Huge,
-    Gargantuan
+    Gargantuan,
 }
 
 impl Default for DndTool {
     fn default() -> Self {
         Self {
-            // Example stuff:
-            label: "Hello World!".to_owned(),
-            value: 2.7,
+            places: vec![
+                Place {
+                    name: "Scorched Lands".to_string(),
+                    creatures: vec![],
+                },
+                Place {
+                    name: "Desolate Lands".to_string(),
+                    creatures: vec![],
+                },
+                Place {
+                    name: "Hollow".to_string(),
+                    creatures: vec![],
+                },
+                Place {
+                    name: "Grove".to_string(),
+                    creatures: vec![],
+                },
+                Place {
+                    name: "Province".to_string(),
+                    creatures: vec![],
+                },
+            ],
+            selected_place_index: 1,
+            open_place_windows_indexes: vec![]
         }
     }
 }
@@ -66,7 +102,7 @@ impl eframe::App for DndTool {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { label, value } = self;
+        let Self { places, selected_place_index, open_place_windows_indexes } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -97,6 +133,20 @@ impl eframe::App for DndTool {
             //     *value += 1.0;
             // }
 
+            egui::ComboBox::from_label("place:")
+                .selected_text(format!("{}", places[*selected_place_index].name))
+                .show_ui(ui, |ui| {
+                    for place_index in 0..places.len() {
+                        ui.selectable_value(selected_place_index, place_index.clone(), places[place_index].name.clone());
+                    }
+                });
+
+            if ui.button("open place window").clicked() {
+                open_place_windows_indexes.push(*selected_place_index)
+            }
+
+
+
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 0.0;
@@ -114,6 +164,21 @@ impl eframe::App for DndTool {
             ui.heading("DnD tools");
             egui::warn_if_debug_build(ui);
         });
+        open_place_windows_indexes.sort();
+        open_place_windows_indexes.dedup();
+
+        for open_place_window_index in open_place_windows_indexes {
+            egui::Window::new(places[*open_place_window_index].name.clone()).id(Id::new(&open_place_window_index)).show(ctx, |ui| {
+                let mut place = &mut places[*open_place_window_index];
+                let mut name = &mut place.name;
+                let mut creatures = &mut place.creatures;
+                inspect!(
+                    ui,
+                    name,
+                    creatures
+                )
+            });
+        }
 
         if false {
             egui::Window::new("Window").show(ctx, |ui| {
