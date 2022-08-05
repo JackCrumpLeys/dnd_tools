@@ -12,7 +12,13 @@ use egui_inspect::inspect;
 pub struct DndTool {
     places: Vec<Place>,
     selected_place_index: usize,
-    open_place_windows_indexes: Vec<usize>
+    open_place_windows_indexes: Vec<usize>,
+    open_interface: Interface
+}
+
+pub enum Interface {
+    CreatureCreation,
+    MapTool,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
@@ -33,6 +39,18 @@ pub struct Creature {
     mana: i32,
     vit:i32,
     name: String,
+    skills: Vec<Skill>,
+    spells: Vec<Spell>
+}
+
+pub struct Skill {
+    name: String,
+    min_max: (i32, i32)
+}
+
+pub struct Spell {
+    name: String,
+    min_max: (i32, i32)
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Ord, PartialEq, PartialOrd, Eq, Clone)]
@@ -102,7 +120,7 @@ impl eframe::App for DndTool {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { places, selected_place_index, open_place_windows_indexes } = self;
+        let Self { places, selected_place_index, open_place_windows_indexes, open_interface } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -167,17 +185,25 @@ impl eframe::App for DndTool {
         open_place_windows_indexes.sort();
         open_place_windows_indexes.dedup();
 
-        for open_place_window_index in open_place_windows_indexes {
-            egui::Window::new(places[*open_place_window_index].name.clone()).id(Id::new(&open_place_window_index)).show(ctx, |ui| {
-                let mut place = &mut places[*open_place_window_index];
+        let mut windows_to_remove:Vec<usize> = vec![];
+        for open_place_window_index in open_place_windows_indexes.clone() {
+            egui::Window::new(places[open_place_window_index].name.clone()).id(Id::new(&open_place_window_index)).show(ctx, |ui| {
+                let place = &mut places[open_place_window_index];
                 let mut name = &mut place.name;
                 let mut creatures = &mut place.creatures;
                 inspect!(
                     ui,
                     name,
                     creatures
-                )
+                );
+                if ui.button("close window").clicked() {
+                    windows_to_remove.push(open_place_window_index);
+                }
             });
+        }
+
+        for window in windows_to_remove{
+            open_place_windows_indexes.remove(window);
         }
 
         if false {
