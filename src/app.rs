@@ -3,6 +3,8 @@ use std::ops::Deref;
 use egui_inspect::derive::Inspect;
 use eframe::{egui};
 use eframe::egui::Id;
+use self::egui::Color32;
+use rand::Rng;
 use egui_inspect::inspect;
 // use ::egui::*;
 
@@ -13,9 +15,21 @@ pub struct DndTool {
     places: Vec<Place>,
     selected_place_index: usize,
     open_place_windows_indexes: Vec<usize>,
-    open_interface: Interface
+    open_interface: Interface,
+    // creating_creatcher: bool
+    dice_windows: Vec<DiceMenu>,
+    dice_id_next: usize
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
+pub struct DiceMenu {
+    amount: i32,
+    size: i32,
+    id: usize,
+    dice_results: Vec<usize>
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub enum Interface {
     CreatureCreation,
     MapTool,
@@ -43,11 +57,13 @@ pub struct Creature {
     spells: Vec<Spell>
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub struct Skill {
     name: String,
     min_max: (i32, i32)
 }
 
+#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
 pub struct Spell {
     name: String,
     min_max: (i32, i32)
@@ -89,7 +105,10 @@ impl Default for DndTool {
                 },
             ],
             selected_place_index: 1,
-            open_place_windows_indexes: vec![]
+            open_place_windows_indexes: vec![],
+            open_interface: Interface::CreatureCreation,
+            dice_windows: vec![],
+            dice_id_next: 0
         }
     }
 }
@@ -120,7 +139,7 @@ impl eframe::App for DndTool {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { places, selected_place_index, open_place_windows_indexes, open_interface } = self;
+        let Self { places, selected_place_index, open_place_windows_indexes, open_interface, dice_windows, dice_id_next } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -163,6 +182,11 @@ impl eframe::App for DndTool {
                 open_place_windows_indexes.push(*selected_place_index)
             }
 
+            if ui.button("open dice window").clicked() {
+                dice_windows.push(DiceMenu { amount: 1, size: 20, id: *dice_id_next, dice_results: vec![] });
+                *dice_id_next += 1;
+            }
+
 
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
@@ -177,7 +201,7 @@ impl eframe::App for DndTool {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // The central panel the region left after adding TopPanel's and SidePanel's
+            // The central panel the region left after adding TopPanels and SidePanels
 
             ui.heading("DnD tools");
             egui::warn_if_debug_build(ui);
@@ -202,8 +226,31 @@ impl eframe::App for DndTool {
             });
         }
 
+        for dice_window in dice_windows {
+            egui::Window::new(format!("Roll {}d{} dice", dice_window.amount, dice_window.size)).id(Id::new(dice_window.id)).show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::DragValue::new(&mut dice_window.amount).speed(0.1));
+                    ui.label("d");
+                    ui.add(egui::DragValue::new(&mut dice_window.size).speed(0.5));
+                });
+
+                if ui.button("Roll dice").clicked() {
+                    dice_window.dice_results.drain(..);
+                    for _ in 0..dice_window.amount {
+                        dice_window.dice_results.push(rand::thread_rng().gen_range(1..=dice_window.size) as usize);
+                    }
+                }
+
+                if !dice_window.dice_results.is_empty() {
+                    ui.text_edit_multiline(&mut format!("{:?}", dice_window.dice_results));
+                }
+
+            });
+        }
+
         for window in windows_to_remove{
-            open_place_windows_indexes.remove(window);
+            let index = open_place_windows_indexes.iter().position(|x| *x == window).unwrap();
+            open_place_windows_indexes.remove(index);
         }
 
         if false {
