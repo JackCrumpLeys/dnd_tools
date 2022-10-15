@@ -1,11 +1,11 @@
+use self::egui::Color32;
+use eframe::egui;
+use eframe::egui::Id;
+use egui_inspect::derive::Inspect;
+use egui_inspect::inspect;
+use rand::Rng;
 use std::collections::HashSet;
 use std::ops::Deref;
-use egui_inspect::derive::Inspect;
-use eframe::{egui};
-use eframe::egui::Id;
-use self::egui::Color32;
-use rand::Rng;
-use egui_inspect::inspect;
 // use ::egui::*;
 
 /// We derive Deserialize/Serialize so we can persist app state on shutdown.
@@ -18,15 +18,31 @@ pub struct DndTool {
     open_interface: Interface,
     // creating_creatcher: bool
     dice_windows: Vec<DiceMenu>,
-    dice_id_next: usize
+    dice_id_next: usize,
+    notes: Vec<Note>,
+    note_id_next: usize,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq,
+)]
 pub struct DiceMenu {
-    amount: i32,
-    size: i32,
+    amount: usize,
+    size: usize,
     id: usize,
-    dice_results: Vec<usize>
+    // dice_results: Vec<usize>,
+    modifier: usize,
+    note: String,
+    rolls: Vec<Vec<usize>>,
+}
+
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq,
+)]
+pub struct Note {
+    id: usize,
+    text: String,
+    displayed: bool,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
@@ -41,35 +57,43 @@ pub struct Place {
     creatures: Vec<Creature>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq,
+)]
 pub struct Creature {
     size: Size,
     _type: String,
-    lv:i32,
+    lv: i32,
     hp: i32,
     strength: i32,
     speed: i32,
     int: i32,
     mana: i32,
-    vit:i32,
+    vit: i32,
     name: String,
     skills: Vec<Skill>,
-    spells: Vec<Spell>
+    spells: Vec<Spell>,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq,
+)]
 pub struct Skill {
     name: String,
-    min_max: (i32, i32)
+    min_max: (i32, i32),
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Clone, Ord, PartialEq, PartialOrd, Eq,
+)]
 pub struct Spell {
     name: String,
-    min_max: (i32, i32)
+    min_max: (i32, i32),
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Inspect, Debug, Ord, PartialEq, PartialOrd, Eq, Clone)]
+#[derive(
+    serde::Deserialize, serde::Serialize, Inspect, Debug, Ord, PartialEq, PartialOrd, Eq, Clone,
+)]
 pub enum Size {
     Tiny,
     Small,
@@ -108,7 +132,9 @@ impl Default for DndTool {
             open_place_windows_indexes: vec![],
             open_interface: Interface::CreatureCreation,
             dice_windows: vec![],
-            dice_id_next: 0
+            dice_id_next: 0,
+            notes: vec![],
+            note_id_next: 0,
         }
     }
 }
@@ -139,7 +165,16 @@ impl eframe::App for DndTool {
     /// Called each time the UI needs repainting, which may be many times per second.
     /// Put your widgets into a `SidePanel`, `TopPanel`, `CentralPanel`, `Window` or `Area`.
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
-        let Self { places, selected_place_index, open_place_windows_indexes, open_interface, dice_windows, dice_id_next } = self;
+        let Self {
+            places,
+            selected_place_index,
+            open_place_windows_indexes,
+            open_interface,
+            dice_windows,
+            dice_id_next,
+            notes,
+            ..
+        } = self;
 
         // Examples of how to create different panels and windows.
         // Pick whichever suits you.
@@ -174,7 +209,11 @@ impl eframe::App for DndTool {
                 .selected_text(format!("{}", places[*selected_place_index].name))
                 .show_ui(ui, |ui| {
                     for place_index in 0..places.len() {
-                        ui.selectable_value(selected_place_index, place_index.clone(), places[place_index].name.clone());
+                        ui.selectable_value(
+                            selected_place_index,
+                            place_index.clone(),
+                            places[place_index].name.clone(),
+                        );
                     }
                 });
 
@@ -183,11 +222,21 @@ impl eframe::App for DndTool {
             }
 
             if ui.button("open dice window").clicked() {
-                dice_windows.push(DiceMenu { amount: 1, size: 20, id: *dice_id_next, dice_results: vec![] });
+                dice_windows.push(DiceMenu {
+                    amount: 1,
+                    size: 20,
+                    id: *dice_id_next,
+                    modifier: 0,
+                    note: String::new(),
+                    rolls: vec![],
+                });
                 *dice_id_next += 1;
             }
 
-
+            // if ui.button("create note").clicked() {
+            //     notes.push(Note { amount: 1, size: 20, id: *dice_id_next, dice_results: vec![] });
+            //     *dice_id_next += 1;
+            // }
 
             ui.with_layout(egui::Layout::bottom_up(egui::Align::LEFT), |ui| {
                 ui.horizontal(|ui| {
@@ -209,48 +258,97 @@ impl eframe::App for DndTool {
         open_place_windows_indexes.sort();
         open_place_windows_indexes.dedup();
 
-        let mut windows_to_remove:Vec<usize> = vec![];
+        let mut windows_to_remove: Vec<usize> = vec![];
         for open_place_window_index in open_place_windows_indexes.clone() {
-            egui::Window::new(places[open_place_window_index].name.clone()).id(Id::new(&open_place_window_index)).show(ctx, |ui| {
-                let place = &mut places[open_place_window_index];
-                let mut name = &mut place.name;
-                let mut creatures = &mut place.creatures;
-                inspect!(
-                    ui,
-                    name,
-                    creatures
-                );
-                if ui.button("close window").clicked() {
-                    windows_to_remove.push(open_place_window_index);
-                }
-            });
+            egui::Window::new(places[open_place_window_index].name.clone())
+                .id(Id::new(&open_place_window_index))
+                .show(ctx, |ui| {
+                    let place = &mut places[open_place_window_index];
+                    let mut name = &mut place.name;
+                    let mut creatures = &mut place.creatures;
+                    inspect!(ui, name, creatures);
+                    if ui.button("close window").clicked() {
+                        windows_to_remove.push(open_place_window_index);
+                    }
+                });
         }
 
-        for dice_window in dice_windows {
-            egui::Window::new(format!("Roll {}d{} dice", dice_window.amount, dice_window.size)).id(Id::new(dice_window.id)).show(ctx, |ui| {
+        let mut dice_windows_to_remove = vec![];
+        for (i, dice_window) in dice_windows.into_iter().enumerate() {
+            egui::Window::new(format!(
+                "Roll {}d{} dice",
+                dice_window.amount, dice_window.size
+            ))
+            .id(Id::new(dice_window.id))
+            .show(ctx, |ui| {
+                if ui.button("close window").clicked() {
+                    dice_windows_to_remove.push(i);
+                }
+
+                ui.horizontal(|ui| {
+                    ui.label("note:");
+                    ui.text_edit_singleline(&mut dice_window.note);
+                });
+
                 ui.horizontal(|ui| {
                     ui.add(egui::DragValue::new(&mut dice_window.amount).speed(0.1));
                     ui.label("d");
                     ui.add(egui::DragValue::new(&mut dice_window.size).speed(0.5));
+                    ui.label("+");
+                    ui.add(egui::DragValue::new(&mut dice_window.modifier).speed(0.5));
                 });
 
                 if ui.button("Roll dice").clicked() {
-                    dice_window.dice_results.drain(..);
+                    let mut dice_results = vec![];
                     for _ in 0..dice_window.amount {
-                        dice_window.dice_results.push(rand::thread_rng().gen_range(1..=dice_window.size) as usize);
+                        dice_results
+                            .push(rand::thread_rng().gen_range(1..=dice_window.size) as usize);
                     }
+                    dice_window.rolls.push(dice_results);
                 }
 
-                if !dice_window.dice_results.is_empty() {
-                    ui.text_edit_multiline(&mut format!("{:?}", dice_window.dice_results));
-                }
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    if !dice_window.rolls.is_empty() {
+                        let current_roll = dice_window.rolls.last().unwrap();
+                        ui.text_edit_multiline(&mut format!(
+                            "{:?}, sum: {}",
+                            current_roll,
+                            (current_roll.iter().sum::<usize>() + dice_window.modifier)
+                        ));
 
+                        if dice_window.rolls.len() != 1 {
+                            ui.collapsing("history", |ui| {
+                                egui::ScrollArea::vertical().show(ui, |ui| {
+                                    for current_roll in dice_window.rolls.iter().rev() {
+                                        ui.text_edit_multiline(&mut format!(
+                                            "{:?}, sum: {}",
+                                            current_roll,
+                                            (current_roll.iter().sum::<usize>()
+                                                + dice_window.modifier)
+                                        ));
+                                    }
+                                });
+                            });
+                        }
+
+                        if dice_window.rolls.len() > 50 as usize {
+                            dice_window.rolls.remove(0);
+                        }
+                    }
+                });
             });
         }
 
-        for window in windows_to_remove{
-            let index = open_place_windows_indexes.iter().position(|x| *x == window).unwrap();
+        for window in windows_to_remove {
+            let index = open_place_windows_indexes
+                .iter()
+                .position(|x| *x == window)
+                .unwrap();
             open_place_windows_indexes.remove(index);
+        }
+
+        for window in dice_windows_to_remove {
+            dice_windows.remove(window);
         }
 
         if false {
