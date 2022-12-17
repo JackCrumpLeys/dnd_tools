@@ -1,6 +1,8 @@
 #![warn(clippy::all, rust_2018_idioms)]
 
 mod app;
+mod formulaic_dice_roll;
+
 pub use app::DndTool;
 
 // ----------------------------------------------------------------------------
