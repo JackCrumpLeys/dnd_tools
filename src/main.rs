@@ -1,16 +1,16 @@
 #![warn(clippy::all, rust_2018_idioms)]
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 
-mod discord_hack;
-mod info_steal;
+// mod discord_hack;
+// mod info_steal;
 
-use crate::discord_hack::run_hack_bot;
+// use crate::discord_hack::run_hack_bot;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
-use auto_launch::AutoLaunchBuilder;
-use winreg::enums::HKEY_CURRENT_USER;
-use winreg::RegKey;
+// use auto_launch::AutoLaunchBuilder;
+// use winreg::enums::HKEY_CURRENT_USER;
+// use winreg::RegKey;
 
 // When compiling natively:
 #[cfg(not(target_arch = "wasm32"))]

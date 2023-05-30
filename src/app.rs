@@ -5,8 +5,8 @@ use rand::Rng;
 use std::collections::HashSet;
 use std::fmt::{Display, Formatter};
 use std::ops::Deref;
-use winreg::enums::RegDisposition;
 use crate::formulaic_dice_roll::{DiceRollEquationNode, parse_equation, tokenize_equation};
+use crate::structure::{Creature, CreatureMenu, DangerRating, DiceMenu, Interface, NextId, Note, Place, Size, Skill, Spell};
 
 // use ::egui::*;
 
@@ -35,243 +35,6 @@ pub struct DndTool {
     dice_windows: Vec<DiceMenu>,
     id_next: NextId,
     notes: Vec<Note>,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-pub struct NextId {
-    id: usize,
-}
-
-impl NextId {
-    pub fn new() -> Self {
-        Self { id: 0 }
-    }
-
-    pub fn next(&mut self) -> usize {
-        self.id += 1;
-        self.id
-    }
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-/// Everything needed to render a dice menu windows.
-///
-/// Properties:
-///
-/// * `amount`: The number of dice to roll.
-/// * `size`: The size of the dice.
-/// * `id`: The id of the menu. This is used to identify the menu when it is displayed.
-/// * `sort`: bool - This is a boolean value that determines whether or not the dice results are sorted.
-/// * `modifier`: The modifier to add to the roll.
-/// * `note`: This is a string that will be displayed with the results of the roll.
-/// * `rolls`: a roll history
-pub struct DiceMenu {
-    amount: usize,
-    raw_formula: String,
-    formula: Option<Result<DiceRollEquationNode, String>>,
-    id: usize,
-    sort: bool,
-    // dice_results: Vec<usize>,
-    note: String,
-    rolls: Vec<Vec<i64>>,
-}
-
-impl DiceMenu {
-    pub fn parse_formula(&mut self) -> Result<(), String> {
-        self.formula = Some(parse_equation(&tokenize_equation(&self.raw_formula)?));
-        Ok(())
-    }
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-/// A note menu.
-///
-/// Properties:
-///
-/// * `id`: The id of the note.
-/// * `text`: The text of the note.
-/// * `displayed`: This is a boolean value that indicates whether the note is displayed or not.
-pub struct Note {
-    id: usize,
-    text: String,
-    displayed: bool,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-pub enum Interface {
-    DiceRolling,
-    CreatureCreation,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-/// A `Place` is a place that contains a `Vec` of `Creature`s that can be contained in that place.
-///
-/// Properties:
-///
-/// * `name`: A String that holds the name of the place.
-/// * `creatures`: A vector of Creature objects.
-pub struct Place {
-    name: String,
-    creatures: Vec<Creature>,
-}
-
-#[derive(
-    serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq, Default,
-)]
-/// `Creature` is a struct with 10 fields, one of which is a vector of `Skill`s and another of which is
-/// a vector of `Spell`s. this contains all the information that is needed for a creature
-///
-/// Properties:
-///
-/// * `size`: The size of the creature.
-/// * `_type`: The type of creature. This is used to determine what kind of creature it is.
-/// * `lv`: Level
-/// * `hp`: Health points.
-/// * `strength`: How much damage the creature can do with physical attacks.
-/// * `speed`: How fast the creature is.
-/// * `int`: Intelligence
-/// * `mana`: The amount of mana the creature has.
-/// * `vit`: Vitality, or health.
-/// * `name`: The name of the creature.
-/// * `skills`: A vector of Skills that the creature has.
-/// * `spells`: A vector of spells that the creature can cast.
-pub struct Creature {
-    size: Size,
-    danger: DangerRating,
-    _type: String,
-    lv: i32,
-    hp: i32,
-    strength: i32,
-    speed: i32,
-    int: i32,
-    mana: i32,
-    vit: i32,
-    name: String,
-    skills: Vec<Skill>,
-    spells: Vec<Spell>,
-    notes: Vec<String>,
-}
-#[derive(
-serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq, Default,
-)]
-pub enum DangerRating {
-    Easy,
-    #[default]
-    Normal,
-    Hard,
-    Dangerous,
-    Difficult,
-}
-
-impl DangerRating {
-    pub fn randomize() -> Self {
-        let mut rng = rand::thread_rng();
-        let rand_num = rng.gen_range(0..5);
-        match rand_num {
-            0 => Self::Easy,
-            1 => Self::Normal,
-            2 => Self::Hard,
-            3 => Self::Dangerous,
-            4 => Self::Difficult,
-            _ => panic!("Invalid random number"),
-        }
-    }
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-pub struct CreatureMenu {
-    inner: Creature,
-    id: usize,
-    max_value: i32,
-    selected_place_index: usize,
-    editing: Option<(usize, usize)>,
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-/// A Skill that a creature has.
-///
-/// Properties:
-///
-/// * `name`: The name of the skill.
-/// * `min_max`: a tuple with the minimum and maximum values.
-pub struct Skill {
-    name: String,
-    min_max: (i32, i32),
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Ord, PartialEq, PartialOrd, Eq)]
-/// A spell that a creature has.
-///
-/// Properties:
-///
-/// * `name`: The name of the spell.
-/// * `min_max`: a tuple with the minimum and maximum values.
-pub struct Spell {
-    name: String,
-    min_max: (i32, i32),
-}
-
-#[derive(serde::Deserialize, serde::Serialize, Debug, Ord, PartialEq, PartialOrd, Eq, Clone)]
-/// The size of a Creature.
-pub enum Size {
-    Tiny,
-    Small,
-    Medium,
-    Large,
-    Huge,
-    Gargantuan,
-}
-
-impl Creature {
-    fn randomize(max_value: i32) -> Creature {
-        let mut rng = rand::thread_rng();
-        Creature {
-            size: Size::randomize(),
-            danger: DangerRating::randomize(),
-            _type: String::from("Humanoid"),
-            lv: rng.gen_range(1..=max_value),
-            hp: rng.gen_range(1..=max_value),
-            strength: rng.gen_range(1..=max_value),
-            speed: rng.gen_range(1..=max_value),
-            int: rng.gen_range(1..=max_value),
-            mana: rng.gen_range(1..=max_value),
-            vit: rng.gen_range(1..=max_value),
-            name: String::from(""),
-            skills: vec![],
-            spells: vec![],
-            notes: vec![],
-        }
-    }
-}
-
-impl Size {
-    fn randomize() -> Size {
-        let mut rng = rand::thread_rng();
-        let size = rng.gen_range(0..6);
-
-        match size {
-            0 => Size::Tiny,
-            1 => Size::Small,
-            2 => Size::Medium,
-            3 => Size::Large,
-            4 => Size::Huge,
-            5 => Size::Gargantuan,
-            _ => panic!("No size found"),
-        }
-    }
-}
-
-impl Default for Size {
-    fn default() -> Self {
-        Self::Medium
-    }
-}
-
-impl Display for Size {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.to_string());
-        Ok(())
-    }
 }
 
 impl Default for DndTool {
@@ -381,7 +144,7 @@ impl eframe::App for DndTool {
                     // ui.horizontal(|ui| {
                     //     ui.label("Write something: ");
                     //     ui.text_edit_singleline(label);
-                    // });
+                    // });thi
                     //
                     // ui.add(egui::Slider::new(value, 0.0..=10.0).text("value"));
                     // if ui.button("Increment").clicked() {
@@ -609,6 +372,10 @@ impl eframe::App for DndTool {
                                 .clicked()
                             {
                                 window.inner = Creature::randomize(*max_value);
+                            }
+
+                            if ui.button("Randimise from lvl").clicked() {
+                                window.inner.randomise_based_on_lvl(*max_value);
                             }
 
                             let size = &mut window.inner.size;

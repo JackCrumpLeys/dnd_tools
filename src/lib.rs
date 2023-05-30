@@ -2,6 +2,7 @@
 
 mod app;
 mod formulaic_dice_roll;
+mod structure;
 
 pub use app::DndTool;
 
